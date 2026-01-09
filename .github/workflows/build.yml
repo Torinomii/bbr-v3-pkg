@@ -113,7 +113,7 @@ jobs:
               rpm-pkg
         
         - name: Upload config
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           with:
             name: config
             path: bbr/.config
