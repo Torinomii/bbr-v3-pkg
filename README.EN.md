@@ -4,14 +4,6 @@
 
 Compile Linux kernel with BBRv3 support into deb/rpm package formats.
 
-This project compiles the latest Google BBR v3 version. BBRv3 is a new generation TCP congestion control algorithm developed by Google and is already deployed on Google's public internet infrastructure.
-
-### Build Environment
-
-- **Compiler**: Clang 19 (LLVM)
-- **Linux Kernel**: Based on the latest Google BBR v3 branch
-- **Build Tools**: GNU Make, bc, kmod, cpio, and other standard kernel compilation tools
-
 ## Installation
 
 Download from `https://github.com/Zxilly/bbr-v3-deb/releases/latest`.

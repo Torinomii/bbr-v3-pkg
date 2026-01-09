@@ -6,14 +6,6 @@ For English, please see [README.EN.md](README.EN.md).
 
 编译支持 bbr-v3 的 linux 内核为 deb/rpm 格式。
 
-本项目使用最新的 Google BBR v3 版本进行编译。BBRv3 是谷歌开发的新一代 TCP 拥塞控制算法，已在谷歌公网基础设施上部署。
-
-### 编译环境
-
-- **编译器**: Clang 19（LLVM）
-- **Linux 内核**: 基于最新的 Google BBR v3 分支
-- **编译工具**: GNU Make, bc, kmod, cpio 等标准内核编译工具
-
 ## 安装
 
 从 `https://github.com/Zxilly/bbr-v3-deb/releases/latest` 下载。

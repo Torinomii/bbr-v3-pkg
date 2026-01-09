@@ -56,8 +56,7 @@ jobs:
               bc kmod cpio flex libncurses5-dev \
               libelf-dev libssl-dev dwarves bison \
               gawk openssl libssl-dev dkms libudev-dev \
-              libpci-dev libiberty-dev autoconf \
-              rpm debhelper
+              libpci-dev libiberty-dev autoconf debhelper
         
         - name: Set up Clang
           run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 19 all
@@ -100,17 +99,6 @@ jobs:
               HOSTCC="sccache clang" \
               -j`nproc` \
               bindeb-pkg
-            # reset version
-            rm .version
-            # Build rpm
-            make \
-              LLVM=-19 \
-              LOCALVERSION="" \
-              CC="sccache clang" \
-              HOSTCC="sccache clang" \
-              RPMOPTS="--nodeps" \
-              -j`nproc` \
-              rpm-pkg
         
         - name: Upload config
           uses: actions/upload-artifact@v4
@@ -123,19 +111,13 @@ jobs:
           with:
             name: deb
             path: linux-*.deb
-        
-        - name: Upload rpm
-          uses: actions/upload-artifact@v4
-          with:
-            name: rpm
-            path: /home/runner/rpmbuild/RPMS/x86_64/*.rpm
 
         - name: Release
           if: ${{ github.event.inputs.release != 'none' }}
           uses: ncipollo/release-action@v1
           with:
-            artifacts: "linux-*.deb,/home/runner/rpmbuild/RPMS/x86_64/*.rpm"
+            artifacts: "linux-*.deb"
             prerelease: ${{ github.event.inputs.release == 'pre-release' }}
             makeLatest: ${{ github.event.inputs.release == 'release' }}
             tag: ${{ steps.time.outputs.time }}
-        
+
