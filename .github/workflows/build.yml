@@ -26,6 +26,25 @@ jobs:
             ref: v3
             path: bbr
 
+        - name: Get latest stable kernel version
+          id: kernel
+          run: |
+            LATEST_STABLE=$(curl -sSL https://www.kernel.org/releases.json | grep -oP '(?<="version": ")[^"]+' | head -1)
+            echo "version=${LATEST_STABLE}" >> $GITHUB_OUTPUT
+            echo "Latest stable kernel: ${LATEST_STABLE}"
+
+        - name: Update to latest stable kernel
+          working-directory: bbr
+          run: |
+            git fetch origin
+            KERNEL_VERSION="${{ steps.kernel.outputs.version }}"
+            # Try to find the closest stable tag or use the base v3 branch
+            if git show-ref --quiet --verify "refs/tags/linux-${KERNEL_VERSION}"; then
+              git checkout "linux-${KERNEL_VERSION}"
+            else
+              echo "Kernel version tag not found in BBR repo, using v3 branch with latest stable configs"
+            fi
+
         - name: Get current time
           id: time
           run: echo "time=$(date -u "+%Y-%m-%d-%H%M%S")" >> $GITHUB_OUTPUT
@@ -41,19 +60,25 @@ jobs:
               rpm debhelper
         
         - name: Set up Clang
-          run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+          run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 19 all
         
         - name: Setup sccache
           uses: mozilla-actions/sccache-action@v0.0.4
 
         - name: Get .config
-          run: curl -sSL https://raw.githubusercontent.com/Zxilly/bbr-v3-pkg/master/.config > bbr/.config
+          run: curl -sSL https://raw.githubusercontent.com/Torinomii/bbr-v3-pkg/master/.config > bbr/.config
+        
+        - name: Update kernel config for stable version
+          working-directory: bbr
+          run: |
+            # Generate a new config based on the current kernel version
+            make LLVM=-19 olddefconfig > /dev/null 2>&1 || true
 
         - name: Setup cache
-          uses: actions/cache@v3
+          uses: actions/cache@v4
           with:
             path: /home/runner/.cache/sccache
-            key: sccache-${{ hashFiles('bbr/.config') }}-llvm
+            key: sccache-${{ hashFiles('bbr/.config') }}-llvm19
         
         - name: Build
           working-directory: bbr
@@ -62,14 +87,14 @@ jobs:
             KDEB_COMPRESS: "xz"
           run: |
             make \
-              LLVM=-18 \
+              LLVM=-19 \
               LOCALVERSION="" \
               CC="sccache clang" \
               HOSTCC="sccache clang" \
               olddefconfig
             # Build deb
             make \
-              LLVM=-18 \
+              LLVM=-19 \
               LOCALVERSION="" \
               CC="sccache clang" \
               HOSTCC="sccache clang" \
@@ -79,7 +104,7 @@ jobs:
             rm .version
             # Build rpm
             make \
-              LLVM=-18 \
+              LLVM=-19 \
               LOCALVERSION="" \
               CC="sccache clang" \
               HOSTCC="sccache clang" \
@@ -94,13 +119,13 @@ jobs:
             path: bbr/.config
         
         - name: Upload deb
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           with:
             name: deb
             path: linux-*.deb
         
         - name: Upload rpm
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           with:
             name: rpm
             path: /home/runner/rpmbuild/RPMS/x86_64/*.rpm
