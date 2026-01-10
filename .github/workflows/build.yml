@@ -11,14 +11,17 @@ on:
           - pre-release
           - release
 
+permissions:
+  contents: write
+
 env:
   SCCACHE_CACHE_SIZE: 9G
   SCCACHE_DIR: /home/runner/.cache/sccache
 
 jobs:
-    build:
-      runs-on: ubuntu-latest
-      steps:
+  build:
+    runs-on: ubuntu-latest
+    steps:
         - name: Checkout
           uses: actions/checkout@v3
           with:
@@ -29,83 +32,107 @@ jobs:
         - name: Get latest stable kernel version
           id: kernel
           run: |
-            LATEST_STABLE=$(curl -sSL https://www.kernel.org/releases.json | grep -oP '(?<="version": ")[^"]+' | head -1)
+            set -euo pipefail
+            LATEST_STABLE=$(python3 -c 'import json,urllib.request; data=json.load(urllib.request.urlopen("https://www.kernel.org/releases.json")); print(data["releases"][0]["version"])')
+            if [ -z "${LATEST_STABLE}" ]; then
+              echo "Failed to determine latest stable kernel version" >&2
+              exit 1
+            fi
             echo "version=${LATEST_STABLE}" >> $GITHUB_OUTPUT
             echo "Latest stable kernel: ${LATEST_STABLE}"
 
         - name: Update to latest stable kernel
           working-directory: bbr
           run: |
+            set -euo pipefail
             git fetch origin
+            git checkout v3
             KERNEL_VERSION="${{ steps.kernel.outputs.version }}"
-            # Try to find the closest stable tag or use the base v3 branch
+            git remote add stable https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git || true
+            git fetch stable --tags
             if git show-ref --quiet --verify "refs/tags/linux-${KERNEL_VERSION}"; then
-              git checkout "linux-${KERNEL_VERSION}"
+              STABLE_TAG="linux-${KERNEL_VERSION}"
+            elif git show-ref --quiet --verify "refs/tags/v${KERNEL_VERSION}"; then
+              STABLE_TAG="v${KERNEL_VERSION}"
             else
-              echo "Kernel version tag not found in BBR repo, using v3 branch with latest stable configs"
+              STABLE_TAG=""
+            fi
+            if [ -n "${STABLE_TAG}" ]; then
+              echo "Attempting to merge stable tag ${STABLE_TAG} into v3"
+              if git merge --no-edit --no-ff "${STABLE_TAG}"; then
+                echo "Merged stable tag successfully"
+              else
+                echo "Merge failed, aborting" >&2
+                git merge --abort || true
+                exit 1
+              fi
+            else
+              echo "Stable tag not found, aborting" >&2
+              exit 1
             fi
 
         - name: Get current time
           id: time
-          run: echo "time=$(date -u "+%Y-%m-%d-%H%M%S")" >> $GITHUB_OUTPUT
+          run: echo "time=$(date -u '+%Y-%m-%d-%H%M%S')" >> $GITHUB_OUTPUT
 
         - name: Setup dependencies
           run: |
+            set -euo pipefail
             sudo apt-get update
             sudo apt-get install -y build-essential \
               bc kmod cpio flex libncurses5-dev \
               libelf-dev libssl-dev dwarves bison \
               gawk openssl libssl-dev dkms libudev-dev \
               libpci-dev libiberty-dev autoconf debhelper
-        
+
         - name: Set up Clang
-          run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 19 all
-        
+          run: |
+            set -euo pipefail
+            sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 19 all
+
         - name: Setup sccache
           uses: mozilla-actions/sccache-action@v0.0.4
 
         - name: Get .config
-          run: curl -sSL https://raw.githubusercontent.com/Torinomii/bbr-v3-pkg/master/.config > bbr/.config
-        
+          run: |
+            set -euo pipefail
+            curl -fSLS --retry 3 --retry-delay 3 https://raw.githubusercontent.com/Torinomii/bbr-v3-pkg/master/.config > bbr/.config
+
         - name: Update kernel config for stable version
           working-directory: bbr
           run: |
+            set -euo pipefail
             # Generate a new config based on the current kernel version
-            make LLVM=-19 olddefconfig > /dev/null 2>&1 || true
+            make LLVM=-19 olddefconfig > /dev/null
 
         - name: Setup cache
           uses: actions/cache@v4
           with:
             path: /home/runner/.cache/sccache
             key: sccache-${{ hashFiles('bbr/.config') }}-llvm19
-        
+
         - name: Build
           working-directory: bbr
           env:
             KBUILD_BUILD_TIMESTAMP: ''
             KDEB_COMPRESS: "xz"
           run: |
-            make \
-              LLVM=-19 \
-              LOCALVERSION="" \
-              CC="sccache clang" \
-              HOSTCC="sccache clang" \
-              olddefconfig
+            set -euo pipefail
             # Build deb
             make \
               LLVM=-19 \
               LOCALVERSION="" \
               CC="sccache clang" \
               HOSTCC="sccache clang" \
-              -j`nproc` \
+              -j"$(nproc)" \
               bindeb-pkg
-        
+
         - name: Upload config
           uses: actions/upload-artifact@v4
           with:
             name: config
             path: bbr/.config
-        
+
         - name: Upload deb
           uses: actions/upload-artifact@v4
           with:
