@@ -28,12 +28,13 @@ jobs:
             repository: google/bbr
             ref: v3
             path: bbr
+            fetch-depth: 0
 
         - name: Get latest stable kernel version
           id: kernel
           run: |
             set -euo pipefail
-            LATEST_STABLE=$(python3 -c 'import json,urllib.request; data=json.load(urllib.request.urlopen("https://www.kernel.org/releases.json")); print(data["releases"][0]["version"])')
+            LATEST_STABLE=$(python3 -c 'import json,urllib.request; data=json.load(urllib.request.urlopen("https://www.kernel.org/releases.json")); stable=[r for r in data.get("releases",[]) if r.get("moniker")=="stable"]; print(stable[0]["version"] if stable else "")')
             if [ -z "${LATEST_STABLE}" ]; then
               echo "Failed to determine latest stable kernel version" >&2
               exit 1
