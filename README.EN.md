@@ -2,7 +2,7 @@
 
 [![Build Package](https://github.com/Zxilly/bbr-v3-pkg/actions/workflows/build.yml/badge.svg)](https://github.com/Zxilly/bbr-v3-pkg/actions/workflows/build.yml)
 
-Compile Linux kernel with BBRv3 support into deb/rpm package formats.
+Compile Linux kernel with BBRv3 support into deb package formats.
 
 ## Installation
 
@@ -10,11 +10,6 @@ Download from `https://github.com/Zxilly/bbr-v3-deb/releases/latest`.
 
 For Debian/Ubuntu systems, download the `linux-headers-*.deb` and `linux-image-*.deb` files and install using `dpkg -i` or `apt install`.
 
-For RPM-based systems (like Fedora, CentOS, RHEL), download the `kernel-headers-*.rpm` and `kernel-*.rpm` files.
-
-If kernel modules need to be built, also download the `kernel-devel-*.rpm` file.
-
-Install using rpm -i or dnf install.
 
 ## Configuration
 
